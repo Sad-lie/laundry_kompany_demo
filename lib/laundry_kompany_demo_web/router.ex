@@ -37,9 +37,17 @@ defmodule LaundryKompanyDemoWeb.Router do
       alias LaundryKompanyDemo.WhatsApp.ConversationHandler
       reply = ConversationHandler.handle(phone, message)
 
+      # Handle both {:text, body} and {:buttons, body, buttons} formats
+      response =
+        case reply do
+          {:text, text} -> %{type: "text", text: text}
+          {:buttons, text, buttons} -> %{type: "buttons", text: text, buttons: buttons}
+          text when is_binary(text) -> %{type: "text", text: text}
+        end
+
       conn
       |> put_resp_content_type("application/json")
-      |> send_resp(200, Jason.encode!(%{reply: reply}))
+      |> send_resp(200, Jason.encode!(response))
     else
       _ ->
         conn

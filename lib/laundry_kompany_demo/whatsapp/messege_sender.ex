@@ -63,6 +63,62 @@ defmodule LaundryKompanyDemo.WhatsApp.MessageSender do
   end
 
   @doc """
+  Send interactive buttons to a WhatsApp number.
+  """
+  def send_buttons(to, text, buttons) when is_list(buttons) do
+    token = access_token()
+
+    if is_nil(token) do
+      Logger.warning(
+        "⚠️  WhatsApp access_token not set — skipping buttons. Reply would be:\n#{text}"
+      )
+
+      {:ok, :skipped}
+    else
+      url = "#{@api_base}/#{phone_number_id()}/messages"
+
+      payload =
+        Jason.encode!(%{
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: to,
+          type: "interactive",
+          interactive: %{
+            type: "button",
+            body: %{
+              text: text
+            },
+            action: %{
+              buttons:
+                Enum.map(buttons, fn %{id: id, title: title} ->
+                  %{type: "reply", reply: %{id: id, title: title}}
+                end)
+            }
+          }
+        })
+
+      headers = [
+        {"Authorization", "Bearer #{access_token()}"},
+        {"Content-Type", "application/json"}
+      ]
+
+      case HTTPoison.post(url, payload, headers) do
+        {:ok, %{status_code: 200, body: body}} ->
+          Logger.info("✅ Buttons sent to #{to}")
+          {:ok, Jason.decode!(body)}
+
+        {:ok, %{status_code: code, body: body}} ->
+          Logger.error("❌ WhatsApp buttons error #{code}: #{body}")
+          {:error, body}
+
+        {:error, reason} ->
+          Logger.error("❌ HTTP error: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
   Send a template message (e.g., for order status updates).
   """
   def send_template(to, template_name, language \\ "en_US", components \\ []) do

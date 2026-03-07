@@ -1,38 +1,55 @@
 defmodule LaundryKompanyDemo.WhatsApp.ConversationHandler do
   @moduledoc """
-  Laundry Kompany Demo — WhatsApp conversation state machine.
+  Laundry Kampany Demo — WhatsApp conversation state machine.
 
-  ┌─────────────────────────────────────────────────────────────┐
-  │  Flow 1  First Contact   → main_menu                        │
-  │  Flow 2  Book Pickup     → pickup_date → pickup_time →      │
-  │                            pickup_address → pickup_service → │
-  │                            pickup_confirm → done            │
-  │  Flow 3  Price Inquiry   → price_menu → price_detail        │
-  │  Flow 4  Order Tracking  → await_order_id                   │
-  │  Flow 5  Human Support   → support_menu → report_issue      │
-  └─────────────────────────────────────────────────────────────┘
+  Returns structured responses: {:text, body} or {:buttons, body, buttons}
   """
 
   alias LaundryKompanyDemo.OrderStore
 
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Public entry point
-  # ─────────────────────────────────────────────────────────────────────────────
-
-  @doc "Process an incoming message and return a reply string."
+  @doc "Process an incoming message and return a reply."
   def handle(phone, raw_message) do
     session = OrderStore.get_session(phone)
     text = raw_message |> String.trim() |> String.downcase()
 
-    cond do
-      greeting?(text) ->
-        show_main_menu(phone)
+    # Check if it's a button click (button ID)
+    if button_click?(text, session) do
+      route(phone, session, text)
+    else
+      cond do
+        greeting?(text) ->
+          show_main_menu(phone)
 
-      text in ["menu", "main menu", "0"] ->
-        show_main_menu(phone)
+        text in ["menu", "main menu", "0"] ->
+          show_main_menu(phone)
 
-      true ->
-        route(phone, session, text)
+        # Handle direct navigation even from idle state
+        text in ["1", "book", "pickup"] ->
+          start_booking(phone)
+
+        text in ["2", "price", "prices"] ->
+          show_price_menu(phone)
+
+        text in ["3", "track", "order"] ->
+          start_tracking(phone)
+
+        text in ["help", "support", "agent"] ->
+          show_support_menu(phone)
+
+        true ->
+          route(phone, session, text)
+      end
+    end
+  end
+
+  # Check if the message is a button ID from previous interactive message
+  defp button_click?(text, session) do
+    case session do
+      %{data: %{last_buttons: buttons}} when is_list(buttons) ->
+        text in buttons
+
+      _ ->
+        false
     end
   end
 
@@ -79,43 +96,50 @@ defmodule LaundryKompanyDemo.WhatsApp.ConversationHandler do
   defp show_main_menu(phone) do
     set_session(phone, :main_menu)
 
-    """
-    Hey 👋 Welcome to *Laundry Kompany Demo*!
+    text = """
+    Hey 👋 Welcome to *Laundry Kampany Demo*!
 
     How can I help you today?
-
-    1️⃣  Book a laundry pickup
-    2️⃣  Check price list
-    3️⃣  Track my order
-
-    Reply with a number to get started.
-    _(Type *menu* anytime to return here)_
     """
+
+    buttons = [
+      %{id: "main_book", title: "📦 Book Pickup"},
+      %{id: "main_price", title: "💰 Price List"},
+      %{id: "main_track", title: "🔍 Track Order"}
+    ]
+
+    # Store button IDs in session
+    set_session_with_buttons(phone, :main_menu, buttons)
+    {:buttons, text, buttons}
   end
 
   defp handle_main_menu_choice(phone, text) do
-    case normalize(text) do
-      x when x in ["1", "book", "book pickup", "pickup"] ->
+    choice = normalize(text)
+
+    # Handle both text (1,2,3) and button clicks
+    cond do
+      choice in ["1", "book", "book pickup", "pickup", "main_book"] ->
         start_booking(phone)
 
-      x when x in ["2", "price", "price list", "prices", "pricing"] ->
+      choice in ["2", "price", "price list", "prices", "pricing", "main_price"] ->
         show_price_menu(phone)
 
-      x when x in ["3", "track", "track order", "track my order", "order"] ->
+      choice in ["3", "track", "track order", "track my order", "order", "main_track"] ->
         start_tracking(phone)
 
-      x when x in ["help", "complaint", "support", "agent"] ->
+      choice in ["help", "complaint", "support", "agent"] ->
         show_support_menu(phone)
 
-      _ ->
-        """
-        Sorry, I didn't quite get that 🤔
+      true ->
+        {:text,
+         """
+         Sorry, I didn't quite get that 🤔
 
-        Please reply with:
-        *1* — Book a laundry pickup
-        *2* — Check price list
-        *3* — Track my order
-        """
+         Please choose an option:
+         1️⃣ — Book a laundry pickup
+         2️⃣ — Check price list
+         3️⃣ — Track my order
+         """}
     end
   end
 
@@ -124,41 +148,42 @@ defmodule LaundryKompanyDemo.WhatsApp.ConversationHandler do
   # ─────────────────────────────────────────────────────────────────────────────
 
   defp start_booking(phone) do
-    set_session(phone, :pickup_date)
+    text = "Great! Let's schedule your laundry pickup 🧺\n\nWhen should we collect it?"
 
-    """
-    Great! Let's schedule your laundry pickup 🧺
+    buttons = [
+      %{id: "date_today", title: "📅 Today"},
+      %{id: "date_tomorrow", title: "📅 Tomorrow"},
+      %{id: "date_other", title: "📅 Other Date"}
+    ]
 
-    When should we collect it?
-
-    1️⃣  Today
-    2️⃣  Tomorrow
-    3️⃣  Choose another date
-    """
+    set_session_with_buttons(phone, :pickup_date, buttons)
+    {:buttons, text, buttons}
   end
 
   defp handle_pickup_date(phone, text) do
     today = Date.utc_today()
     tomorrow = Date.add(today, 1)
+    choice = normalize(text)
 
-    case normalize(text) do
-      x when x in ["1", "today"] ->
+    cond do
+      choice in ["1", "today", "date_today"] ->
         save_and_ask_time(phone, Date.to_string(today), "Today")
 
-      x when x in ["2", "tomorrow"] ->
+      choice in ["2", "tomorrow", "date_tomorrow"] ->
         save_and_ask_time(phone, Date.to_string(tomorrow), "Tomorrow")
 
-      x when x in ["3", "another", "choose", "other", "choose another date"] ->
+      choice in ["3", "another", "choose", "other", "choose another date", "date_other"] ->
         set_session(phone, :pickup_custom_date)
-        "📅 Please type your preferred date in *DD/MM/YYYY* format (e.g. 25/06/2025)"
+        {:text, "📅 Please type your preferred date in *DD/MM/YYYY* format (e.g. 25/06/2025)"}
 
-      _ ->
-        """
-        Please choose an option:
-        *1* — Today
-        *2* — Tomorrow
-        *3* — Choose another date
-        """
+      true ->
+        {:text,
+         """
+         Please choose an option:
+         1️⃣ — Today
+         2️⃣ — Tomorrow
+         3️⃣ — Choose another date
+         """}
     end
   end
 
@@ -170,74 +195,99 @@ defmodule LaundryKompanyDemo.WhatsApp.ConversationHandler do
   end
 
   defp save_and_ask_time(phone, date_str, label) do
-    put_session(phone, :pickup_time, %{date: date_str, date_label: label})
+    buttons = [
+      %{id: "time_morning", title: "🌅 Morning"},
+      %{id: "time_afternoon", title: "☀️ Afternoon"},
+      %{id: "time_evening", title: "🌆 Evening"}
+    ]
 
-    """
-    📅 Got it — *#{label}*!
+    put_session(phone, :pickup_time, %{
+      date: date_str,
+      date_label: label,
+      last_buttons: Enum.map(buttons, & &1.id)
+    })
 
-    What time works best for pickup?
+    text = "📅 Got it — *#{label}*!\n\nWhat time works best for pickup?"
 
-    1️⃣  Morning   (8am – 12pm)
-    2️⃣  Afternoon (12pm – 5pm)
-    3️⃣  Evening   (5pm – 8pm)
-    """
+    {:buttons, text, buttons}
   end
 
   defp handle_pickup_time(phone, data, text) do
-    slot =
-      case normalize(text) do
-        x when x in ["1", "morning"] -> "Morning (8am – 12pm)"
-        x when x in ["2", "afternoon"] -> "Afternoon (12pm – 5pm)"
-        x when x in ["3", "evening"] -> "Evening (5pm – 8pm)"
-        _ -> nil
-      end
+    choice = normalize(text)
 
-    if slot do
-      put_session(phone, :pickup_address, Map.put(data, :time_slot, slot))
-      "📍 Perfect! What's your *pickup address*?\n_(e.g. 15 Bode Thomas, Surulere, Lagos)_"
-    else
-      """
-      Please choose a time slot:
-      *1* — Morning (8am – 12pm)
-      *2* — Afternoon (12pm – 5pm)
-      *3* — Evening (5pm – 8pm)
-      """
+    cond do
+      choice in ["1", "morning", "time_morning"] ->
+        put_session(phone, :pickup_address, Map.put(data, :time_slot, "Morning (8am – 12pm)"))
+
+        {:text,
+         "📍 Perfect! What's your *pickup address*?\n_(e.g. 15 Bode Thomas, Surulere, Lagos)_"}
+
+      choice in ["2", "afternoon", "time_afternoon"] ->
+        put_session(phone, :pickup_address, Map.put(data, :time_slot, "Afternoon (12pm – 5pm)"))
+
+        {:text,
+         "📍 Perfect! What's your *pickup address*?\n_(e.g. 15 Bode Thomas, Surulere, Lagos)_"}
+
+      choice in ["3", "evening", "time_evening"] ->
+        put_session(phone, :pickup_address, Map.put(data, :time_slot, "Evening (5pm – 8pm)"))
+
+        {:text,
+         "📍 Perfect! What's your *pickup address*?\n_(e.g. 15 Bode Thomas, Surulere, Lagos)_"}
+
+      true ->
+        {:text,
+         """
+         Please choose a time slot:
+         1️⃣ — Morning (8am – 12pm)
+         2️⃣ — Afternoon (12pm – 5pm)
+         3️⃣ — Evening (5pm – 8pm)
+         """}
     end
   end
 
   defp handle_pickup_address(phone, data, address) do
     if String.length(address) < 5 do
-      "⚠️ That address seems too short. Please enter your full street address."
+      {:text, "⚠️ That address seems too short. Please enter your full street address."}
     else
-      put_session(phone, :pickup_service, Map.put(data, :address, address))
+      buttons = [
+        %{id: "svc_washfold", title: "🧺 Wash & Fold"},
+        %{id: "svc_dryclean", title: "👔 Dry Cleaning"},
+        %{id: "svc_ironing", title: "👕 Ironing Only"}
+      ]
 
-      """
-      Got your address 📍
+      new_data = Map.put(data, :address, address)
+      new_data = Map.put(new_data, :last_buttons, Enum.map(buttons, & &1.id))
+      put_session(phone, :pickup_service, new_data)
 
-      What service do you need?
+      text = "Got your address 📍\n\nWhat service do you need?"
 
-      1️⃣  🧺 Wash & Fold
-      2️⃣  👔 Dry Cleaning
-      3️⃣  👕 Ironing Only
-      4️⃣  ✨ Wash & Iron
-      """
+      {:buttons, text, buttons}
     end
   end
 
   defp handle_pickup_service(phone, data, text) do
+    choice = normalize(text)
+
     service =
-      case normalize(text) do
-        x when x in ["1", "wash", "wash & fold", "wash and fold"] -> "Wash & Fold"
-        x when x in ["2", "dry", "dry cleaning"] -> "Dry Cleaning"
-        x when x in ["3", "iron", "ironing", "ironing only"] -> "Ironing Only"
-        x when x in ["4", "wash & iron", "wash and iron"] -> "Wash & Iron"
-        _ -> nil
+      cond do
+        choice in ["1", "wash", "wash & fold", "wash and fold", "svc_washfold"] -> "Wash & Fold"
+        choice in ["2", "dry", "dry cleaning", "svc_dryclean"] -> "Dry Cleaning"
+        choice in ["3", "iron", "ironing", "ironing only", "svc_ironing"] -> "Ironing Only"
+        choice in ["4", "wash & iron", "wash and iron"] -> "Wash & Iron"
+        true -> nil
       end
 
     if service do
-      put_session(phone, :pickup_confirm, Map.put(data, :service, service))
+      buttons = [
+        %{id: "confirm_yes", title: "✅ Confirm"},
+        %{id: "confirm_no", title: "❌ Cancel"}
+      ]
 
-      """
+      new_data = Map.put(data, :service, service)
+      new_data = Map.put(new_data, :last_buttons, Enum.map(buttons, & &1.id))
+      put_session(phone, :pickup_confirm, new_data)
+
+      summary = """
       Almost there! Here's your booking summary:
 
       ─────────────────────────
@@ -248,23 +298,26 @@ defmodule LaundryKompanyDemo.WhatsApp.ConversationHandler do
       📍 Address : #{data.address}
       🧺 Service : #{service}
       ─────────────────────────
+      """
 
-      Reply *YES* to confirm or *NO* to cancel.
-      """
+      {:buttons, summary, buttons}
     else
-      """
-      Please choose a service:
-      *1* — 🧺 Wash & Fold
-      *2* — 👔 Dry Cleaning
-      *3* — 👕 Ironing Only
-      *4* — ✨ Wash & Iron
-      """
+      {:text,
+       """
+       Please choose a service:
+       1️⃣ — 🧺 Wash & Fold
+       2️⃣ — 👔 Dry Cleaning
+       3️⃣ — 👕 Ironing Only
+       4️⃣ — ✨ Wash & Iron
+       """}
     end
   end
 
   defp handle_pickup_confirm(phone, data, text) do
-    case normalize(text) do
-      x when x in ["yes", "confirm", "ok", "yep", "yeah"] ->
+    choice = normalize(text)
+
+    cond do
+      choice in ["yes", "confirm", "ok", "yep", "yeah", "confirm_yes"] ->
         order =
           OrderStore.create_order(%{
             phone: phone,
@@ -279,28 +332,29 @@ defmodule LaundryKompanyDemo.WhatsApp.ConversationHandler do
 
         set_session(phone, :idle)
 
-        """
-        🎉 *Booking Confirmed!*
+        {:text,
+         """
+         🎉 *Booking Confirmed!*
 
-        Your pickup is scheduled for:
-        📅 *#{data.date_label}* | ⏰ *#{data.time_slot}*
-        📍 #{data.address}
+         Your pickup is scheduled for:
+         📅 *#{data.date_label}* | ⏰ *#{data.time_slot}*
+         📍 #{data.address}
 
-        Your Order ID: *#{order.id}*
+         Your Order ID: *#{order.id}*
 
-        We'll send you updates here on WhatsApp at every step.
+         We'll send you updates here on WhatsApp at every step.
 
-        ─────────────────────────
-        Need anything else? Type *menu* to go back.
-        ─────────────────────────
-        """
+         ─────────────────────────
+         Need anything else? Type *menu* to go back.
+         ─────────────────────────
+         """}
 
-      x when x in ["no", "cancel", "nope"] ->
+      choice in ["no", "cancel", "nope", "confirm_no"] ->
         set_session(phone, :idle)
-        "No worries! Your booking was cancelled. Type *menu* to start over. 👋"
+        {:text, "No worries! Your booking was cancelled. Type *menu* to start over. 👋"}
 
-      _ ->
-        "Please reply *YES* to confirm your booking or *NO* to cancel."
+      true ->
+        {:text, "Please confirm with *YES* or *NO*."}
     end
   end
 
@@ -309,82 +363,80 @@ defmodule LaundryKompanyDemo.WhatsApp.ConversationHandler do
   # ─────────────────────────────────────────────────────────────────────────────
 
   defp show_price_menu(phone) do
-    set_session(phone, :price_menu)
+    text = "Here's a quick look at our services 💧"
 
-    """
-    Here's a quick look at our services 💧
+    buttons = [
+      %{id: "price_washfold", title: "🧺 Wash & Fold"},
+      %{id: "price_dryclean", title: "👔 Dry Cleaning"},
+      %{id: "price_bulk", title: "🏭 Bulk / Commercial"}
+    ]
 
-    1️⃣  Wash & Fold pricing
-    2️⃣  Dry Cleaning pricing
-    3️⃣  Bulk / Commercial laundry
-
-    Reply with the number to see details.
-    _(Type *menu* to go back)_
-    """
+    set_session_with_buttons(phone, :price_menu, buttons)
+    {:buttons, text, buttons}
   end
 
   defp handle_price_menu(phone, text) do
-    case normalize(text) do
-      x when x in ["1", "wash", "wash & fold"] ->
+    choice = normalize(text)
+
+    cond do
+      choice in ["1", "wash", "wash & fold", "price_washfold"] ->
         set_session(phone, :main_menu)
 
-        """
-        🧺 *Wash & Fold Pricing*
-        ─────────────────────────
-        Up to 3 kg   — ₦1,500
-        3 – 7 kg     — ₦2,800
-        7 – 10 kg    — ₦4,000
-        10 kg+       — ₦450 / kg
-        ─────────────────────────
-        ⏱ Turnaround: *24 – 48 hours*
-        🚗 Free pickup & delivery on orders above ₦3,000
+        {:text,
+         """
+         🧺 *Wash & Fold Pricing*
+         ─────────────────────────
+         Up to 3 kg   — ₦1,500
+         3 – 7 kg     — ₦2,800
+         7 – 10 kg    — ₦4,000
+         10 kg+       — ₦450 / kg
+         ─────────────────────────
+         ⏱ Turnaround: *24 – 48 hours*
+         🚗 Free pickup & delivery on orders above ₦3,000
+         """}
 
-        Type *1* to book a pickup or *menu* to go back.
-        """
-
-      x when x in ["2", "dry", "dry cleaning"] ->
+      choice in ["2", "dry", "dry cleaning", "price_dryclean"] ->
         set_session(phone, :main_menu)
 
-        """
-        👔 *Dry Cleaning Pricing*
-        ─────────────────────────
-        Shirt / Blouse   — ₦800
-        Trousers         — ₦900
-        Suit (2-piece)   — ₦3,500
-        Gown / Dress     — ₦2,000
-        Duvet (single)   — ₦4,500
-        Duvet (double)   — ₦6,000
-        ─────────────────────────
-        ⏱ Turnaround: *48 – 72 hours*
+        {:text,
+         """
+         👔 *Dry Cleaning Pricing*
+         ─────────────────────────
+         Shirt / Blouse   — ₦800
+         Trousers         — ₦900
+         Suit (2-piece)   — ₦3,500
+         Gown / Dress     — ₦2,000
+         Duvet (single)   — ₦4,500
+         Duvet (double)   — ₦6,000
+         ─────────────────────────
+         ⏱ Turnaround: *48 – 72 hours*
+         """}
 
-        Type *1* to book a pickup or *menu* to go back.
-        """
-
-      x when x in ["3", "bulk", "commercial"] ->
+      choice in ["3", "bulk", "commercial", "price_bulk"] ->
         set_session(phone, :main_menu)
 
-        """
-        🏭 *Bulk / Commercial Laundry*
-        ─────────────────────────────
-        We serve hotels, hospitals, salons & businesses.
+        {:text,
+         """
+         🏭 *Bulk / Commercial Laundry*
+         ─────────────────────────────
+         We serve hotels, hospitals, salons & businesses.
 
-        📦 Minimum order : 20 kg
-        💰 Rate          : ₦300 / kg (negotiable for large volumes)
-        🚛 We handle all pickup & delivery logistics
+         📦 Minimum order : 20 kg
+         💰 Rate          : ₦300 / kg (negotiable for large volumes)
+         🚛 We handle all pickup & delivery logistics
 
-        📞 Call for a custom quote:
-        *+234 800 LAUNDRY*
+         📞 Call for a custom quote:
+         *+234 800 LAUNDRY*
+         """}
 
-        Type *menu* to go back.
-        """
-
-      _ ->
-        """
-        Please reply with:
-        *1* — Wash & Fold pricing
-        *2* — Dry Cleaning pricing
-        *3* — Bulk / Commercial laundry
-        """
+      true ->
+        {:text,
+         """
+         Please reply with:
+         1️⃣ — Wash & Fold pricing
+         2️⃣ — Dry Cleaning pricing
+         3️⃣ — Bulk / Commercial laundry
+         """}
     end
   end
 
@@ -515,6 +567,11 @@ defmodule LaundryKompanyDemo.WhatsApp.ConversationHandler do
 
   defp put_session(phone, state, data),
     do: OrderStore.put_session(phone, %{state: state, data: data})
+
+  defp set_session_with_buttons(phone, state, buttons) do
+    button_ids = Enum.map(buttons, & &1.id)
+    OrderStore.put_session(phone, %{state: state, data: %{last_buttons: button_ids}})
+  end
 
   defp greeting?(text) do
     text in [

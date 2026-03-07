@@ -75,10 +75,59 @@ defmodule LaundryKompanyDemo.Controllers.WhatsAppController do
     Logger.info("📨 Message from #{phone}: #{body}")
 
     reply = ConversationHandler.handle(phone, body)
-    MessageSender.send_text(phone, reply)
+    send_reply(phone, reply)
+  end
+
+  defp handle_message(
+         %{
+           "type" => "interactive",
+           "from" => phone,
+           "interactive" => %{
+             "type" => "button_reply",
+             "button_reply" => %{"id" => button_id, "title" => _title}
+           }
+         },
+         _value
+       ) do
+    Logger.info("📨 Button click from #{phone}: #{button_id}")
+    reply = ConversationHandler.handle(phone, button_id)
+    send_reply(phone, reply)
   end
 
   defp handle_message(%{"type" => type, "from" => phone}, _value) do
     Logger.info("📨 Unsupported message type '#{type}' from #{phone}")
+  end
+
+  defp handle_message(
+         %{
+           "interactive" => %{
+             "type" => "button_reply",
+             "button_reply" => %{"id" => button_id, "title" => _title}
+           }
+         },
+         _value
+       ) do
+    # Get phone from the message
+    Logger.info("📨 Button click: #{button_id}")
+    # For button clicks, we need to get the phone from context - this is handled differently
+    # WhatsApp sends button clicks as text messages, so this may not be reached
+  end
+
+  defp handle_message(%{"type" => type, "from" => phone}, _value) do
+    Logger.info("📨 Unsupported message type '#{type}' from #{phone}")
+  end
+
+  # Handle structured replies from ConversationHandler
+  defp send_reply(phone, {:text, text}) do
+    MessageSender.send_text(phone, text)
+  end
+
+  defp send_reply(phone, {:buttons, text, buttons}) do
+    MessageSender.send_buttons(phone, text, buttons)
+  end
+
+  # Fallback for plain string responses (backwards compatibility)
+  defp send_reply(phone, text) when is_binary(text) do
+    MessageSender.send_text(phone, text)
   end
 end

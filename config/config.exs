@@ -4,6 +4,8 @@
 # This configuration file is loaded before any dependency and
 # is restricted to this project.
 
+import Config
+
 # General application configuration
 import Config
 
@@ -44,7 +46,8 @@ config :phoenix, :json_library, Jason
 
 config :laundry_kompany_demo,
   port: String.to_integer(System.get_env("PORT") || "4000"),
-  whatsapp_token: "EAAWpW9xoq7cBQZBVv4YrfxyAhvcCWxqDCtIDAZBMZBNqIzpij2SaZACGmmMV8IrkyZB7Um9XFzh3ZAaDjVbnWNZClQehxRFIH4hyk96JWqyHZA0AY34w3AKub5usKJ5JJSctziyTd4fCBlHB98h4dSMZAj8YVokz5fqcnW9ckXuV9TLEduZAgNbmd7BsjjO2ZAYWsUUIZBUIOVQpmcoTOSfg9Gtvre5OQZBQT7v6FAarL4nmioUwvd9JOKwfFDq48F64XTARxNXy7OY9rqhLcPvyjM9EQvQZDZD",
+  whatsapp_token:
+    "EAAWpW9xoq7cBQZBVv4YrfxyAhvcCWxqDCtIDAZBMZBNqIzpij2SaZACGmmMV8IrkyZB7Um9XFzh3ZAaDjVbnWNZClQehxRFIH4hyk96JWqyHZA0AY34w3AKub5usKJ5JJSctziyTd4fCBlHB98h4dSMZAj8YVokz5fqcnW9ckXuV9TLEduZAgNbmd7BsjjO2ZAYWsUUIZBUIOVQpmcoTOSfg9Gtvre5OQZBQT7v6FAarL4nmioUwvd9JOKwfFDq48F64XTARxNXy7OY9rqhLcPvyjM9EQvQZDZD",
   verify_token: System.get_env("VERIFY_TOKEN") || "laundry_kompany_token",
   whatsapp_phone_number_id: System.get_env("WHATSAPP_PHONE_NUMBER_ID")
 

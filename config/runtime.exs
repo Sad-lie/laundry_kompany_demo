@@ -24,7 +24,7 @@ end
 # Copy .env.example to .env and fill in your values
 config :laundry_kompany_demo, :whatsapp,
   phone_number_id: "1064591636728470",
-  access_token: "EAAWpW9xoq7cBQZBVv4YrfxyAhvcCWxqDCtIDAZBMZBNqIzpij2SaZACGmmMV8IrkyZB7Um9XFzh3ZAaDjVbnWNZClQehxRFIH4hyk96JWqyHZA0AY34w3AKub5usKJ5JJSctziyTd4fCBlHB98h4dSMZAj8YVokz5fqcnW9ckXuV9TLEduZAgNbmd7BsjjO2ZAYWsUUIZBUIOVQpmcoTOSfg9Gtvre5OQZBQT7v6FAarL4nmioUwvd9JOKwfFDq48F64XTARxNXy7OY9rqhLcPvyjM9EQvQZDZD",
+  access_token: System.get_env("WHATSAPP_ACCESS_TOKEN"),
   verify_token: System.get_env("WHATSAPP_VERIFY_TOKEN", "laundry_kompany_demo_token")
 
 
