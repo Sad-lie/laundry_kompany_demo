@@ -2,10 +2,12 @@ import Config
 
 config :logger, level: :warning
 
-
-# Configure your database
+# Configure your database for testing
 config :laundry_kompany_demo, LaundryKompanyDemo.Repo,
-  database: Path.expand("../laundry_kompany_demo_test.sqlite", Path.dirname(__ENV__.file)),
+  username: System.get_env("DB_USER") || "postgres",
+  password: System.get_env("DB_PASSWORD") || "postgres",
+  hostname: System.get_env("DB_HOST") || "localhost",
+  database: "laundry_kompany_demo_test",
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
 

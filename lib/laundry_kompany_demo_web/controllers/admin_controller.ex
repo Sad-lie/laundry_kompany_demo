@@ -1,32 +1,20 @@
 defmodule LaundryKompanyDemo.Controllers.AdminController do
   @moduledoc """
   Admin REST API for managing orders.
-
-  Routes:
-    GET    /api/orders              — List all orders for a phone
-    GET    /api/orders/:id          — Get a single order
-    PATCH  /api/orders/:id/status   — Update order status
   """
 
   import Plug.Conn
-  require Logger
 
   alias LaundryKompanyDemo.OrderStore
   alias LaundryKompanyDemo.WhatsApp.MessageSender
 
   @valid_statuses ~w(pending picked_up washing ready delivered)
 
-  # ── GET /api/orders?phone=... ─────────────────────────────────────────────────
+  # ── GET /api/orders ──────────────────────────────────────────────────────────
 
   def list_orders(conn) do
-    phone = conn.query_params["phone"]
-
-    if is_nil(phone) or phone == "" do
-      json_resp(conn, 400, %{error: "phone query param is required"})
-    else
-      orders = OrderStore.list_orders(phone)
-      json_resp(conn, 200, %{orders: Enum.map(orders, &serialize_order/1)})
-    end
+    orders = OrderStore.list_all_orders()
+    json_resp(conn, 200, %{orders: Enum.map(orders, &serialize_order/1)})
   end
 
   # ── GET /api/orders/:id ───────────────────────────────────────────────────────
@@ -46,9 +34,8 @@ defmodule LaundryKompanyDemo.Controllers.AdminController do
     with {:ok, status} <- Map.fetch(params, "status"),
          true <- status in @valid_statuses,
          order when not is_nil(order) <- OrderStore.get_order(order_id) do
-      OrderStore.update_order_status(order_id, String.to_atom(status))
+      OrderStore.update_order_status(order_id, status)
 
-      # Notify customer via WhatsApp
       notify_customer(order, status)
 
       json_resp(conn, 200, %{message: "Status updated", order_id: order_id, status: status})
@@ -76,11 +63,11 @@ defmodule LaundryKompanyDemo.Controllers.AdminController do
       id: order.id,
       phone: order.phone,
       service: order.service,
-      kg: order.kg,
-      total: order.total,
+      date: Map.get(order, :date),
+      time: Map.get(order, :time),
       address: order.address,
       status: order.status,
-      created_at: DateTime.to_iso8601(order.created_at)
+      inserted_at: order.inserted_at
     }
   end
 
@@ -105,7 +92,7 @@ defmodule LaundryKompanyDemo.Controllers.AdminController do
 
   defp notify_customer(order, "delivered") do
     msg =
-      "🎉 *Order Delivered!* — *#{order.id}*\n\nYour laundry has been delivered. Enjoy your fresh clothes!\n\nThank you for choosing *Laundry Kompany*! 🧺"
+      "🎉 *Order Delivered!* — *#{order.id}*\n\nYour laundry has been delivered. Enjoy your fresh clothes!\n\nThank you for choosing *Laundry Kampany*! 🧺"
 
     MessageSender.send_text(order.phone, msg)
   end

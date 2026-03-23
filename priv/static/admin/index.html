@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laundry Kampany - Admin Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; }
+    
+    .login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .login-box { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 100%; max-width: 400px; text-align: center; }
+    .login-box h1 { color: #2c3e50; margin-bottom: 1.5rem; font-size: 1.5rem; }
+    .login-box input { width: 100%; padding: 0.75rem; margin-bottom: 1rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; }
+    .login-box button { width: 100%; padding: 0.75rem; background: #667eea; color: white; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; }
+    .login-box button:hover { background: #5568d3; }
+    .login-error { color: #e74c3c; margin-bottom: 1rem; display: none; }
+    
+    .header { background: #2c3e50; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 1.5rem; }
+    .header .status { display: flex; align-items: center; gap: 0.5rem; }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #e74c3c; }
+    .status-dot.online { background: #2ecc71; }
+    
+    .container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+    
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .stat-card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .stat-card h3 { color: #7f8c8d; font-size: 0.875rem; text-transform: uppercase; margin-bottom: 0.5rem; }
+    .stat-card .value { font-size: 2rem; font-weight: bold; color: #2c3e50; }
+    
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .tab { padding: 0.75rem 1.5rem; background: white; border: none; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 1rem; }
+    .tab.active { background: #3498db; color: white; }
+    
+    .orders-table { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 1rem; text-align: left; border-bottom: 1px solid #eee; }
+    th { background: #f8f9fa; font-weight: 600; }
+    tr:hover { background: #f8f9fa; }
+    
+    .status-badge { padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+    .status-pending { background: #fff3cd; color: #856404; }
+    .status-picked_up { background: #cce5ff; color: #004085; }
+    .status-washing { background: #b8daff; color: #004085; }
+    .status-ready { background: #d4edda; color: #155724; }
+    .status-delivered { background: #c3e6cb; color: #155724; }
+    
+    .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .btn { padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.875rem; }
+    .btn-primary { background: #3498db; color: white; }
+    .btn-primary:hover { background: #2980b9; }
+    .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+    .btn-success { background: #2ecc71; color: white; }
+    .btn-warning { background: #f39c12; color: white; }
+    .btn-danger { background: #e74c3c; color: white; }
+    .btn-logout { background: #e74c3c; color: white; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; }
+    
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+    .modal.show { display: flex; }
+    .modal-content { background: white; padding: 2rem; border-radius: 12px; max-width: 500px; width: 90%; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .modal-header h2 { font-size: 1.25rem; }
+    .close { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+    .form-group select { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; }
+    .modal-actions { display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem; }
+    
+    .refresh-btn { background: #3498db; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
+    .refresh-btn:hover { background: #2980b9; }
+    
+    .empty-state { text-align: center; padding: 3rem; color: #7f8c8d; }
+    
+    @media (max-width: 768px) {
+      table { font-size: 0.875rem; }
+      th, td { padding: 0.75rem 0.5rem; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <!-- Login Screen -->
+  <div class="login-container" id="loginScreen">
+    <div class="login-box">
+      <h1>🧺 Laundry Kampany<br><small>Admin Login</small></h1>
+      <p class="login-error" id="loginError">Invalid password. Please try again.</p>
+      <input type="password" id="adminPassword" placeholder="Enter admin password" />
+      <button onclick="login()">Login</button>
+    </div>
+  </div>
+
+  <!-- Admin Dashboard (hidden by default) -->
+  <div id="dashboard" style="display: none;">
+    <header class="header">
+      <h1>🧺 Laundry Kampany - Admin</h1>
+      <div class="status">
+        <span id="statusText">Connected</span>
+        <div class="status-dot online" id="statusDot"></div>
+        <a href="#" class="btn-logout" onclick="logout()">Logout</a>
+      </div>
+    </header>
+    
+    <main class="container">
+      <div class="stats">
+        <div class="stat-card">
+          <h3>Total Orders</h3>
+          <div class="value" id="totalOrders">-</div>
+        </div>
+        <div class="stat-card">
+          <h3>Pending</h3>
+          <div class="value" id="pendingOrders">-</div>
+        </div>
+        <div class="stat-card">
+          <h3>In Progress</h3>
+          <div class="value" id="inProgressOrders">-</div>
+        </div>
+        <div class="stat-card">
+          <h3>Completed</h3>
+          <div class="value" id="completedOrders">-</div>
+        </div>
+      </div>
+      
+      <div class="tabs">
+        <button class="tab active" onclick="showTab('all')">All Orders</button>
+        <button class="tab" onclick="showTab('pending')">Pending</button>
+        <button class="tab" onclick="showTab('in-progress')">In Progress</button>
+        <button class="tab" onclick="showTab('completed')">Completed</button>
+        <button class="refresh-btn" onclick="loadOrders()">🔄 Refresh</button>
+      </div>
+      
+      <div class="orders-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Phone</th>
+              <th>Service</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Address</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="ordersBody">
+            <tr><td colspan="8" class="empty-state">Loading orders...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+  
+  <div class="modal" id="statusModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Update Order Status</h2>
+        <button class="close" onclick="closeModal()">&times;</button>
+      </div>
+      <input type="hidden" id="orderId">
+      <div class="form-group">
+        <label>Order ID: <span id="modalOrderId"></span></label>
+      </div>
+      <div class="form-group">
+        <label for="newStatus">Select New Status</label>
+        <select id="newStatus">
+          <option value="pending">⏳ Pending Pickup</option>
+          <option value="picked_up">🚗 Picked Up</option>
+          <option value="washing">🫧 Washing</option>
+          <option value="ready">✅ Ready for Delivery</option>
+          <option value="delivered">🎉 Delivered</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="updateStatus()">Update Status</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Simple password check - in production, use proper auth!
+    const ADMIN_PASSWORD = 'laundry2024'; // Change this!
+    
+    let allOrders = [];
+    let currentFilter = 'all';
+    
+    // Check if already logged in
+    if (localStorage.getItem('adminLoggedIn') === 'true') {
+      showDashboard();
+    }
+    
+    function login() {
+      const password = document.getElementById('adminPassword').value;
+      if (password === ADMIN_PASSWORD) {
+        localStorage.setItem('adminLoggedIn', 'true');
+        showDashboard();
+      } else {
+        document.getElementById('loginError').style.display = 'block';
+      }
+    }
+    
+    function logout() {
+      localStorage.removeItem('adminLoggedIn');
+      document.getElementById('loginScreen').style.display = 'flex';
+      document.getElementById('dashboard').style.display = 'none';
+    }
+    
+    function showDashboard() {
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      loadOrders();
+    }
+    
+    async function loadOrders() {
+      try {
+        const response = await fetch('/api/orders');
+        const data = await response.json();
+        
+        if (data.orders) {
+          allOrders = data.orders;
+          updateStats();
+          renderOrders();
+          setOnlineStatus(true);
+        } else if (data.error) {
+          setOnlineStatus(false);
+          document.getElementById('ordersBody').innerHTML = `<tr><td colspan="8" class="empty-state">Error: ${data.error}</td></tr>`;
+        }
+      } catch (error) {
+        setOnlineStatus(false);
+        document.getElementById('ordersBody').innerHTML = `<tr><td colspan="8" class="empty-state">Could not connect to server</td></tr>`;
+      }
+    }
+    
+    function setOnlineStatus(online) {
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      if (online) {
+        dot.classList.add('online');
+        text.textContent = 'Connected';
+      } else {
+        dot.classList.remove('online');
+        text.textContent = 'Offline';
+      }
+    }
+    
+    function updateStats() {
+      const total = allOrders.length;
+      const pending = allOrders.filter(o => o.status === 'pending').length;
+      const inProgress = allOrders.filter(o => ['picked_up', 'washing', 'ready'].includes(o.status)).length;
+      const completed = allOrders.filter(o => o.status === 'delivered').length;
+      
+      document.getElementById('totalOrders').textContent = total;
+      document.getElementById('pendingOrders').textContent = pending;
+      document.getElementById('inProgressOrders').textContent = inProgress;
+      document.getElementById('completedOrders').textContent = completed;
+    }
+    
+    function getFilteredOrders() {
+      if (currentFilter === 'all') return allOrders;
+      if (currentFilter === 'pending') return allOrders.filter(o => o.status === 'pending');
+      if (currentFilter === 'in-progress') return allOrders.filter(o => ['picked_up', 'washing', 'ready'].includes(o.status));
+      if (currentFilter === 'completed') return allOrders.filter(o => o.status === 'delivered');
+      return allOrders;
+    }
+    
+    function showTab(tab) {
+      currentFilter = tab;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      renderOrders();
+    }
+    
+    function renderOrders() {
+      const orders = getFilteredOrders();
+      const tbody = document.getElementById('ordersBody');
+      
+      if (orders.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-state">No orders found</td></tr>`;
+        return;
+      }
+      
+      tbody.innerHTML = orders.map(order => `
+        <tr>
+          <td><strong>${order.id}</strong></td>
+          <td>${order.phone}</td>
+          <td>${order.service}</td>
+          <td>${order.date || '-'}</td>
+          <td>${order.time || '-'}</td>
+          <td>${order.address || '-'}</td>
+          <td><span class="status-badge status-${order.status}">${formatStatus(order.status)}</span></td>
+          <td>
+            <div class="actions">
+              ${getActionButtons(order)}
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+    
+    function getActionButtons(order) {
+      const buttons = [];
+      if (order.status === 'pending') {
+        buttons.push(`<button class="btn btn-sm btn-success" onclick="openModal('${order.id}', 'picked_up')">🚗 Pick Up</button>`);
+      }
+      if (order.status === 'picked_up') {
+        buttons.push(`<button class="btn btn-sm btn-primary" onclick="openModal('${order.id}', 'washing')">🫧 Wash</button>`);
+      }
+      if (order.status === 'washing') {
+        buttons.push(`<button class="btn btn-sm btn-success" onclick="openModal('${order.id}', 'ready')">✅ Ready</button>`);
+      }
+      if (order.status === 'ready') {
+        buttons.push(`<button class="btn btn-sm btn-success" onclick="openModal('${order.id}', 'delivered')">🎉 Deliver</button>`);
+      }
+      buttons.push(`<button class="btn btn-sm btn-warning" onclick="openModal('${order.id}', '${order.status}')">✏️ Edit</button>`);
+      return buttons.join('');
+    }
+    
+    function formatStatus(status) {
+      const statusMap = {
+        'pending': 'Pending',
+        'picked_up': 'Picked Up',
+        'washing': 'Washing',
+        'ready': 'Ready',
+        'delivered': 'Delivered'
+      };
+      return statusMap[status] || status;
+    }
+    
+    function openModal(orderId, currentStatus) {
+      document.getElementById('orderId').value = orderId;
+      document.getElementById('modalOrderId').textContent = orderId;
+      document.getElementById('newStatus').value = currentStatus;
+      document.getElementById('statusModal').classList.add('show');
+    }
+    
+    function closeModal() {
+      document.getElementById('statusModal').classList.remove('show');
+    }
+    
+    async function updateStatus() {
+      const orderId = document.getElementById('orderId').value;
+      const newStatus = document.getElementById('newStatus').value;
+      
+      try {
+        const response = await fetch(`/api/orders/${orderId}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus })
+        });
+        
+        if (response.ok) {
+          closeModal();
+          loadOrders();
+          alert('Status updated! Customer has been notified via WhatsApp.');
+        } else {
+          alert('Failed to update status');
+        }
+      } catch (error) {
+        alert('Error updating status');
+      }
+    }
+    
+    // Allow Enter key for login
+    document.getElementById('adminPassword').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') login();
+    });
+    
+    // Auto refresh every 30 seconds
+    setInterval(loadOrders, 30000);
+  </script>
+</body>
+</html>

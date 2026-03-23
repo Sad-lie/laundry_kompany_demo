@@ -23,10 +23,12 @@ end
 # WhatsApp Cloud API Configuration
 # Copy .env.example to .env and fill in your values
 config :laundry_kompany_demo, :whatsapp,
-  phone_number_id: "1064591636728470",
+  phone_number_id: System.get_env("WHATSAPP_PHONE_NUMBER_ID"),
   access_token: System.get_env("WHATSAPP_ACCESS_TOKEN"),
   verify_token: System.get_env("WHATSAPP_VERIFY_TOKEN", "laundry_kompany_demo_token")
 
+# Admin credentials
+config :laundry_kompany_demo, :admin, password: System.get_env("ADMIN_PASSWORD", "laundry2024")
 
 if config_env() == :prod do
   database_url =

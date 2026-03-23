@@ -36,6 +36,7 @@ defmodule LaundryKompanyDemo.Controllers.WhatsAppController do
       Logger.warning("❌ Webhook verification failed. Token mismatch.")
 
       conn
+      |> IO.inspect(label: "Received verification params")
       |> send_resp(403, "Forbidden")
     end
   end

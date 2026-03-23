@@ -131,15 +131,7 @@ defmodule LaundryKompanyDemo.WhatsApp.ConversationHandler do
         show_support_menu(phone)
 
       true ->
-        {:text,
-         """
-         Sorry, I didn't quite get that 🤔
-
-         Please choose an option:
-         1️⃣ — Book a laundry pickup
-         2️⃣ — Check price list
-         3️⃣ — Track my order
-         """}
+        show_main_menu(phone)
     end
   end
 
@@ -177,13 +169,7 @@ defmodule LaundryKompanyDemo.WhatsApp.ConversationHandler do
         {:text, "📅 Please type your preferred date in *DD/MM/YYYY* format (e.g. 25/06/2025)"}
 
       true ->
-        {:text,
-         """
-         Please choose an option:
-         1️⃣ — Today
-         2️⃣ — Tomorrow
-         3️⃣ — Choose another date
-         """}
+        start_booking(phone)
     end
   end
 
@@ -287,15 +273,20 @@ defmodule LaundryKompanyDemo.WhatsApp.ConversationHandler do
       new_data = Map.put(new_data, :last_buttons, Enum.map(buttons, & &1.id))
       put_session(phone, :pickup_confirm, new_data)
 
+      date_label = Map.get(data, :date_label) || Map.get(data, "date_label") || "TBD"
+      date = Map.get(data, :date) || Map.get(data, "date") || "TBD"
+      time_slot = Map.get(data, :time_slot) || Map.get(data, "time_slot") || "TBD"
+      address = Map.get(data, :address) || Map.get(data, "address") || "TBD"
+
       summary = """
       Almost there! Here's your booking summary:
 
       ─────────────────────────
       📋 *Pickup Summary*
       ─────────────────────────
-      📅 Date    : #{data.date_label} (#{data.date})
-      ⏰ Time    : #{data.time_slot}
-      📍 Address : #{data.address}
+      📅 Date    : #{date_label} (#{date})
+      ⏰ Time    : #{time_slot}
+      📍 Address : #{address}
       🧺 Service : #{service}
       ─────────────────────────
       """
@@ -316,18 +307,24 @@ defmodule LaundryKompanyDemo.WhatsApp.ConversationHandler do
   defp handle_pickup_confirm(phone, data, text) do
     choice = normalize(text)
 
+    service = Map.get(data, :service) || Map.get(data, "service")
+    date = Map.get(data, :date) || Map.get(data, "date")
+    time_slot = Map.get(data, :time_slot) || Map.get(data, "time_slot")
+    address = Map.get(data, :address) || Map.get(data, "address")
+    date_label = Map.get(data, :date_label) || Map.get(data, "date_label")
+
     cond do
       choice in ["yes", "confirm", "ok", "yep", "yeah", "confirm_yes"] ->
         order =
           OrderStore.create_order(%{
             phone: phone,
-            service: data.service,
-            date: data.date,
-            time: data.time_slot,
-            address: data.address,
-            status: :pending,
+            service: service,
+            date: date,
+            time: time_slot,
+            address: address,
+            status: "pending",
             kg: 0,
-            total: 0
+            total: Decimal.new(0)
           })
 
         set_session(phone, :idle)
@@ -337,8 +334,8 @@ defmodule LaundryKompanyDemo.WhatsApp.ConversationHandler do
          🎉 *Booking Confirmed!*
 
          Your pickup is scheduled for:
-         📅 *#{data.date_label}* | ⏰ *#{data.time_slot}*
-         📍 #{data.address}
+         📅 *#{date_label}* | ⏰ *#{time_slot}*
+         📍 #{address}
 
          Your Order ID: *#{order.id}*
 
@@ -530,12 +527,7 @@ defmodule LaundryKompanyDemo.WhatsApp.ConversationHandler do
         show_main_menu(phone)
 
       _ ->
-        """
-        Please choose an option:
-        *1* — Talk to customer support
-        *2* — Report an issue with an order
-        *3* — Go back to main menu
-        """
+        show_support_menu(phone)
     end
   end
 
@@ -578,15 +570,24 @@ defmodule LaundryKompanyDemo.WhatsApp.ConversationHandler do
       "hi",
       "hello",
       "hey",
-      "start",
+      "hiya",
       "hii",
+      "hiii",
       "helo",
+      "hello!",
+      "hi!",
+      "hey!",
+      "hy",
+      "hya",
+      "hola",
+      "start",
       "sup",
       "yo",
       "good morning",
       "good afternoon",
       "good evening"
-    ]
+    ] or String.starts_with?(text, "hi") or String.starts_with?(text, "hey") or
+      String.starts_with?(text, "hello")
   end
 
   defp normalize(text), do: text |> String.downcase() |> String.trim()

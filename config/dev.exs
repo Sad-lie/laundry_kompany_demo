@@ -4,10 +4,13 @@ config :logger, level: :debug
 
 # Configure your database
 config :laundry_kompany_demo, LaundryKompanyDemo.Repo,
-  database: Path.expand("../laundry_kompany_demo_dev.sqlite", Path.dirname(__ENV__.file)),
-  pool_size: 5,
+  username: System.get_env("DB_USER") || "postgres",
+  password: System.get_env("DB_PASSWORD") || "postgres",
+  hostname: System.get_env("DB_HOST") || "localhost",
+  database: "laundry_kompany_demo_dev",
   stacktrace: true,
-  show_sensitive_data_on_connection_error: true
+  show_sensitive_data_on_connection_error: true,
+  pool_size: 10
 
 # For development, we disable any cache and enable
 # debugging and code reloading.
@@ -67,6 +70,6 @@ config :swoosh, :api_client, false
 # WhatsApp Cloud API Configuration
 # Copy .env.example to .env and fill in your values
 config :laundry_kompany_demo, :whatsapp,
-  phone_number_id: "1064591636728470",
+  phone_number_id: System.get_env("WHATSAPP_PHONE_NUMBER_ID"),
   access_token: System.get_env("WHATSAPP_ACCESS_TOKEN"),
-  verify_token: System.get_env("WHATSAPP_VERIFY_TOKEN", "laundry_kompany_demo_token")
+  verify_token: System.get_env("WHATSAPP_VERIFY_TOKEN")

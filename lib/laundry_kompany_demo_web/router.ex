@@ -73,6 +73,12 @@ defmodule LaundryKompanyDemoWeb.Router do
     AdminController.update_status(conn, id)
   end
 
+  # ── Admin Dashboard ──────────────────────────────────────────────────────────
+
+  get "/admin" do
+    send_file(conn, 200, "priv/static/admin/index.html")
+  end
+
   # ── 404 Fallback ──────────────────────────────────────────────────────────────
 
   match _ do

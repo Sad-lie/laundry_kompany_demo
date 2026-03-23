@@ -123,8 +123,12 @@ When you update a status, the customer automatically gets a WhatsApp notificatio
 laundry_kompany_demo/
 ├── lib/laundry_kompany_demo/
 │   ├── application.ex              # OTP supervisor
-│   ├── router.ex                   # Plug HTTP router
-│   ├── order_store.ex              # In-memory GenServer store
+│   ├── repo.ex                     # Ecto repository
+│   ├── order_store.ex              # GenServer wrapping Orders context
+│   ├── orders.ex                   # Database operations context
+│   ├── orders/
+│   │   ├── order.ex                # Order schema
+│   │   └── session.ex              # Session schema
 │   ├── controllers/
 │   │   ├── whatsapp_controller.ex  # Webhook handler
 │   │   └── admin_controller.ex     # Admin REST API
@@ -134,7 +138,8 @@ laundry_kompany_demo/
 ├── config/
 │   ├── config.exs
 │   ├── dev.exs
-│   └── prod.exs
+│   ├── prod.exs
+│   └── runtime.exs
 ├── test/
 │   └── conversation_handler_test.exs
 ├── .env.example
@@ -154,13 +159,24 @@ laundry_kompany_demo/
 
 ---
 
-## 🔄 Production Upgrades (TODO)
+## 🔄 Production Deploy
 
-- [ ] Replace `OrderStore` GenServer with **Ecto + PostgreSQL**
-- [ ] Add authentication middleware for admin endpoints
-- [ ] Swap `HTTPoison` for `Req` (modern HTTP client)
-- [ ] Add **Phoenix PubSub** for real-time order dashboard
-- [ ] Deploy to **Fly.io** or **Render** with `mix release`
+### 🚀 Deploy to Render
+
+1. Create a new Web Service on Render
+2. Set build command: `mix deps.get --only prod && mix compile`
+3. Set start command: `_build/prod/rel/laundry_kompany_demo/bin/laundry_kompany_demo start`
+4. Add environment variables:
+   - `DATABASE_URL` - PostgreSQL connection string
+   - `SECRET_KEY_BASE` - Run `mix phx.gen.secret` to generate
+   - `WHATSAPP_PHONE_NUMBER_ID` - From Meta Developer Portal
+   - `WHATSAPP_ACCESS_TOKEN` - From Meta Developer Portal
+   - `WHATSAPP_VERIFY_TOKEN` - Your custom token
+   - `ADMIN_PASSWORD` - Password for admin panel
+
+### Render PostgreSQL
+
+Render provides PostgreSQL. Create a database and connect using the provided URL.
 
 ---
 

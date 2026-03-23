@@ -1,11 +1,13 @@
 defmodule LaundryKompanyDemo.OrderStore do
   @moduledoc """
-  Simple in-memory store for orders and customer sessions.
-  Replace with Ecto + PostgreSQL in production.
+  Order store backed by PostgreSQL database.
+  Uses the Orders context for database operations.
   """
   use GenServer
 
-  # ── Public API ───────────────────────────────────────────────────────────────
+  alias LaundryKompanyDemo.Orders
+
+  # ── Public API ─────────────────────────────────────────────────────────────
 
   def start_link(_), do: GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
 
@@ -16,7 +18,7 @@ defmodule LaundryKompanyDemo.OrderStore do
   def put_session(phone, session), do: GenServer.cast(__MODULE__, {:put_session, phone, session})
 
   @doc "Create a new order."
-  def create_order(order), do: GenServer.call(__MODULE__, {:create_order, order})
+  def create_order(attrs), do: GenServer.call(__MODULE__, {:create_order, attrs})
 
   @doc "Get an order by ID."
   def get_order(order_id), do: GenServer.call(__MODULE__, {:get_order, order_id})
@@ -24,63 +26,59 @@ defmodule LaundryKompanyDemo.OrderStore do
   @doc "List all orders for a phone number."
   def list_orders(phone), do: GenServer.call(__MODULE__, {:list_orders, phone})
 
+  @doc "List all orders."
+  def list_all_orders, do: GenServer.call(__MODULE__, :list_all_orders)
+
   @doc "Update order status."
   def update_order_status(order_id, status),
     do: GenServer.cast(__MODULE__, {:update_order_status, order_id, status})
 
-  # ── GenServer Callbacks ───────────────────────────────────────────────────────
+  # ── GenServer Callbacks ───────────────────────────────────────────────────
 
   @impl true
   def init(_) do
-    {:ok, %{sessions: %{}, orders: %{}, counter: 1}}
+    {:ok, %{}}
   end
 
   @impl true
   def handle_call({:get_session, phone}, _from, state) do
-    session = Map.get(state.sessions, phone, %{state: :idle, data: %{}})
+    session = Orders.get_session(phone)
     {:reply, session, state}
   end
 
   @impl true
-  def handle_call({:create_order, order}, _from, state) do
-    order_id = "LKD-#{String.pad_leading("#{state.counter}", 4, "0")}"
-    new_order = Map.merge(order, %{id: order_id, created_at: DateTime.utc_now()})
-    new_state = %{
-      state
-      | orders: Map.put(state.orders, order_id, new_order),
-        counter: state.counter + 1
-    }
-    {:reply, new_order, new_state}
+  def handle_call({:create_order, attrs}, _from, state) do
+    order = Orders.create_order(attrs)
+    {:reply, order, state}
   end
 
   @impl true
   def handle_call({:get_order, order_id}, _from, state) do
-    {:reply, Map.get(state.orders, order_id), state}
+    order = Orders.get_order_by_order_id(order_id)
+    {:reply, order, state}
   end
 
   @impl true
   def handle_call({:list_orders, phone}, _from, state) do
-    orders =
-      state.orders
-      |> Map.values()
-      |> Enum.filter(&(&1.phone == phone))
-      |> Enum.sort_by(& &1.created_at, {:desc, DateTime})
+    orders = Orders.list_orders_by_phone(phone)
+    {:reply, orders, state}
+  end
 
+  @impl true
+  def handle_call(:list_all_orders, _from, state) do
+    orders = Orders.list_orders()
     {:reply, orders, state}
   end
 
   @impl true
   def handle_cast({:put_session, phone, session}, state) do
-    {:noreply, %{state | sessions: Map.put(state.sessions, phone, session)}}
+    Orders.put_session(phone, session)
+    {:noreply, state}
   end
 
   @impl true
   def handle_cast({:update_order_status, order_id, status}, state) do
-    new_orders =
-      Map.update(state.orders, order_id, nil, fn order ->
-        Map.put(order, :status, status)
-      end)
-
-    {:noreply, %{state | orders: new_orders}}
+    Orders.update_order_status(order_id, status)
+    {:noreply, state}
   end
 end
