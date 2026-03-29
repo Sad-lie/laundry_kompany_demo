@@ -53,4 +53,13 @@ defmodule LaundryKompanyDemo.MixProject do
       "phx.server": ["load_env", "phx.server"]
     ]
   end
+
+  def releases do
+    [
+      laundry_kompany_demo: [
+        include_executables_for: [:unix],
+        include_dirs: ["priv"]
+      ]
+    ]
+  end
 end

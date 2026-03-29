@@ -23,10 +23,20 @@ defmodule LaundryKompanyDemo.Application do
   end
 
   defp run_migrations do
+    IO.puts("Checking migrations... RUN_MIGRATIONS=#{System.get_env("RUN_MIGRATIONS")}")
+
     if System.get_env("RUN_MIGRATIONS") == "true" do
       IO.puts("Running migrations...")
-      {:ok, _} = LaundryKompanyDemo.Repo.start_link(pool_size: 1)
-      Ecto.Migrator.run(LaundryKompanyDemo.Repo, :up, pool_size: 1)
+
+      try do
+        {:ok, _} = LaundryKompanyDemo.Repo.start_link(pool_size: 1)
+        Ecto.Migrator.run(LaundryKompanyDemo.Repo, :up, pool_size: 1)
+        IO.puts("Migrations complete!")
+      rescue
+        e -> IO.puts("Migration error: #{inspect(e)}")
+      end
+    else
+      IO.puts("Skipping migrations (set RUN_MIGRATIONS=true to run)")
     end
   end
 end
