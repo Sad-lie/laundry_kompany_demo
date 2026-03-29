@@ -95,6 +95,17 @@ defmodule LaundryKompanyDemo.Controllers.WhatsAppController do
     send_reply(phone, reply)
   end
 
+  defp handle_message(%{"type" => "location", "from" => phone, "location" => location}, _value) do
+    latitude = Map.get(location, "latitude")
+    longitude = Map.get(location, "longitude")
+    address = Map.get(location, "name")
+
+    Logger.info("📍 Location received from #{phone}: #{latitude}, #{longitude}")
+
+    reply = ConversationHandler.handle_location(phone, latitude, longitude, address)
+    send_reply(phone, reply)
+  end
+
   defp handle_message(%{"type" => type, "from" => phone}, _value) do
     Logger.info("📨 Unsupported message type '#{type}' from #{phone}")
   end

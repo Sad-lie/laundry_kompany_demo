@@ -201,54 +201,87 @@ defmodule LaundryKompanyDemo.WhatsApp.ConversationHandler do
   defp handle_pickup_time(phone, data, text) do
     choice = normalize(text)
 
-    cond do
-      choice in ["1", "morning", "time_morning"] ->
-        put_session(phone, :pickup_address, Map.put(data, :time_slot, "Morning (8am – 12pm)"))
+    time_slot =
+      cond do
+        choice in ["1", "morning", "time_morning"] -> "Morning (8am – 12pm)"
+        choice in ["2", "afternoon", "time_afternoon"] -> "Afternoon (12pm – 5pm)"
+        choice in ["3", "evening", "time_evening"] -> "Evening (5pm – 8pm)"
+        true -> nil
+      end
 
-        {:text,
-         "📍 Perfect! What's your *pickup address*?\n_(e.g. 15 Bode Thomas, Surulere, Lagos)_"}
-
-      choice in ["2", "afternoon", "time_afternoon"] ->
-        put_session(phone, :pickup_address, Map.put(data, :time_slot, "Afternoon (12pm – 5pm)"))
-
-        {:text,
-         "📍 Perfect! What's your *pickup address*?\n_(e.g. 15 Bode Thomas, Surulere, Lagos)_"}
-
-      choice in ["3", "evening", "time_evening"] ->
-        put_session(phone, :pickup_address, Map.put(data, :time_slot, "Evening (5pm – 8pm)"))
-
-        {:text,
-         "📍 Perfect! What's your *pickup address*?\n_(e.g. 15 Bode Thomas, Surulere, Lagos)_"}
-
-      true ->
-        {:text,
-         """
-         Please choose a time slot:
-         1️⃣ — Morning (8am – 12pm)
-         2️⃣ — Afternoon (12pm – 5pm)
-         3️⃣ — Evening (5pm – 8pm)
-         """}
+    if time_slot do
+      data = Map.put(data, :time_slot, time_slot)
+      ask_for_location(phone, data)
+    else
+      {:text,
+       """
+       Please choose a time slot:
+       1️⃣ — Morning (8am – 12pm)
+       2️⃣ — Afternoon (12pm – 5pm)
+       3️⃣ — Evening (5pm – 8pm)
+       """}
     end
   end
 
   defp handle_pickup_address(phone, data, address) do
-    if String.length(address) < 5 do
-      {:text, "⚠️ That address seems too short. Please enter your full street address."}
-    else
-      buttons = [
-        %{id: "svc_washfold", title: "🧺 Wash & Fold"},
-        %{id: "svc_dryclean", title: "👔 Dry Cleaning"},
-        %{id: "svc_ironing", title: "👕 Ironing Only"}
-      ]
+    address = String.trim(address)
 
-      new_data = Map.put(data, :address, address)
-      new_data = Map.put(new_data, :last_buttons, Enum.map(buttons, & &1.id))
-      put_session(phone, :pickup_service, new_data)
+    cond do
+      address == "skip_location" ->
+        ask_for_manual_address(phone, data)
 
-      text = "Got your address 📍\n\nWhat service do you need?"
+      String.length(address) < 5 ->
+        ask_for_location(phone, data)
 
-      {:buttons, text, buttons}
+      true ->
+        proceed_with_address(phone, data, address)
     end
+  end
+
+  defp ask_for_manual_address(phone, data) do
+    text = "📝 Please type your full pickup address:\n_(e.g. 15 Bode Thomas, Surulere, Lagos)_"
+
+    put_session(phone, :pickup_address, data)
+
+    {:text, text}
+  end
+
+  defp ask_for_location(phone, data) do
+    text =
+      "📍 Please share your location for pickup:\n\nTap the 📎 attachment button → *Location* to share where we should pick up your laundry."
+
+    buttons = [
+      %{id: "skip_location", title: "📝 Type Address Instead"}
+    ]
+
+    new_data = Map.put(data, :last_buttons, ["skip_location"])
+    put_session(phone, :pickup_address, new_data)
+
+    {:buttons, text, buttons}
+  end
+
+  defp proceed_with_address(phone, data, address) do
+    buttons = [
+      %{id: "svc_washfold", title: "🧺 Wash & Fold"},
+      %{id: "svc_dryclean", title: "👔 Dry Cleaning"},
+      %{id: "svc_ironing", title: "👕 Ironing Only"}
+    ]
+
+    new_data = Map.put(data, :address, address)
+    new_data = Map.put(new_data, :last_buttons, Enum.map(buttons, & &1.id))
+    put_session(phone, :pickup_service, new_data)
+
+    text = "Got your address 📍\n\nWhat service do you need?"
+
+    {:buttons, text, buttons}
+  end
+
+  def handle_location(phone, latitude, longitude, address \\ nil) do
+    session = OrderStore.get_session(phone)
+
+    location_text = address || "#{latitude}, #{longitude}"
+
+    proceed_with_address(phone, session.data, location_text)
   end
 
   defp handle_pickup_service(phone, data, text) do
