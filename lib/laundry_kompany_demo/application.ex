@@ -5,6 +5,8 @@ defmodule LaundryKompanyDemo.Application do
 
   @impl true
   def start(_type, _args) do
+    run_migrations()
+
     children = [
       LaundryKompanyDemoWeb.Telemetry,
       LaundryKompanyDemo.Repo,
@@ -18,5 +20,13 @@ defmodule LaundryKompanyDemo.Application do
 
     opts = [strategy: :one_for_one, name: LaundryKompanyDemo.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  defp run_migrations do
+    if System.get_env("RUN_MIGRATIONS") == "true" do
+      IO.puts("Running migrations...")
+      {:ok, _} = LaundryKompanyDemo.Repo.start_link(pool_size: 1)
+      Ecto.Migrator.run(LaundryKompanyDemo.Repo, :up, pool_size: 1)
+    end
   end
 end

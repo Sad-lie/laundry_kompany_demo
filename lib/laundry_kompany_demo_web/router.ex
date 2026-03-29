@@ -11,6 +11,12 @@ defmodule LaundryKompanyDemoWeb.Router do
   plug(Plug.Parsers, parsers: [:urlencoded, :json], json_decoder: Jason)
   plug(:dispatch)
 
+  # ── Homepage ─────────────────────────────────────────────────────────────────
+
+  get "/" do
+    send_file(conn, 200, "priv/static/index.html")
+  end
+
   # ── Health check ─────────────────────────────────────────────────────────────
 
   get "/health" do

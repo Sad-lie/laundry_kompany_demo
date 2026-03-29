@@ -164,15 +164,16 @@ laundry_kompany_demo/
 ### 🚀 Deploy to Render
 
 1. Create a new Web Service on Render
-2. Set build command: `mix deps.get --only prod && mix compile`
+2. Set build command: `mix deps.get --only prod && MIX_ENV=prod mix release --overwrite`
 3. Set start command: `_build/prod/rel/laundry_kompany_demo/bin/laundry_kompany_demo start`
 4. Add environment variables:
-   - `DATABASE_URL` - PostgreSQL connection string
+   - `DATABASE_URL` - PostgreSQL connection string (from Render)
    - `SECRET_KEY_BASE` - Run `mix phx.gen.secret` to generate
    - `WHATSAPP_PHONE_NUMBER_ID` - From Meta Developer Portal
    - `WHATSAPP_ACCESS_TOKEN` - From Meta Developer Portal
    - `WHATSAPP_VERIFY_TOKEN` - Your custom token
    - `ADMIN_PASSWORD` - Password for admin panel
+   - `PORT` - Set to `4000`
 
 ### Render PostgreSQL
 
